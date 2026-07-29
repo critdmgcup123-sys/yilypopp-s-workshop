@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yilypop's Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-pegboard:#262927;
+    --bg-pegboard-2:#2f322f;
+    --hole: rgba(232,163,61,0.16);
+    --hole-edge: rgba(0,0,0,0.35);
+    --amber:#E8A33D;
+    --amber-soft: rgba(232,163,61,0.16);
+    --green:#5C8B77;
+    --paper:#FAF6EC;
+    --paper-line: rgba(35,32,26,0.06);
+    --ink:#23201B;
+    --ink-soft:#7a7263;
+    --danger:#B5533C;
+    --sidebar-w: 300px;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Inter', sans-serif;
+    color:var(--ink);
+    background:var(--paper);
+    display:flex;
+    min-height:100vh;
+    overflow:hidden;
+  }
+  ::selection{ background: var(--amber-soft); }
+
+  /* ---------- Sidebar (pegboard) ---------- */
+  #sidebar{
+    width:var(--sidebar-w);
+    min-width:var(--sidebar-w);
+    background:
+      radial-gradient(circle at 1px 1px, var(--hole) 1.4px, transparent 1.6px) 0 0/22px 22px,
+      linear-gradient(180deg, var(--bg-pegboard), var(--bg-pegboard-2));
+    color:#f1ede2;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding:22px 16px 16px;
+    position:relative;
+    box-shadow: inset -1px 0 0 rgba(0,0,0,0.25), 6px 0 24px rgba(0,0,0,0.18);
+  }
+  .brand{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:0.2px;
+    line-height:1.25;
+    padding:2px 6px 14px;
+    border-bottom:1px dashed rgba(241,237,226,0.18);
+    margin-bottom:14px;
+  }
+  .brand span{ color:var(--amber); }
+  .brand small{
+    display:block;
+    font-family:'JetBrains Mono', monospace;
+    font-weight:400;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:rgba(241,237,226,0.45);
+    margin-top:4px;
+  }
+
+  .add-slot{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    background:transparent;
+    border:1.5px dashed rgba(232,163,61,0.55);
+    color:var(--amber);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    padding:10px 12px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    margin-bottom:14px;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .add-slot:hover{ background:rgba(232,163,61,0.1); }
+  .add-slot:active{ transform:scale(0.98); }
+  .add-slot .plus-icon{
+    font-size:16px; line-height:1;
+  }
+
+  #sectionList{
+    list-style:none;
+    margin:0; padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    overflow-y:auto;
+    flex:1;
+  }
+  #sectionList::-webkit-scrollbar{ width:6px; }
+  #sectionList::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:3px; }
+
+  .tool-tag{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    background:rgba(255,255,255,0.045);
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:var(--radius);
+    padding:9px 8px 9px 6px;
+    cursor:grab;
+    transition:background .15s ease, border-color .15s ease;
+    position:relative;
+  }
+  .tool-tag:hover{ background:rgba(255,255,255,0.08); }
+  .tool-tag.active{
+    background:linear-gradient(90deg, rgba(232,163,61,0.22), rgba(232,163,61,0.08));
+    border-color:rgba(232,163,61,0.55);
+  }
+  .tool-tag.dragging{ opacity:0.4; }
+  .tool-tag.drag-over-top{ box-shadow: inset 0 2px 0 var(--amber); }
+  .tool-tag.drag-over-bottom{ box-shadow: inset 0 -2px 0 var(--amber); }
+
+  .grip{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:rgba(241,237,226,0.3);
+    cursor:grab;
+    padding:0 2px;
+    user-select:none;
+  }
+  .tag-icon{ font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+  .tag-label{
+    flex:1;
+    font-size:13.5px;
+    font-weight:500;
+    color:#f1ede2;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .tag-actions{ display:flex; align-items:center; gap:2px; opacity:0; transition:opacity .12s ease; }
+  .tool-tag:hover .tag-actions{ opacity:1; }
+  .tag-actions button{
+    background:none; border:none; color:rgba(241,237,226,0.55);
+    cursor:pointer; font-size:11px; padding:3px 4px; line-height:1;
+    border-radius:4px;
+  }
+  .tag-actions button:hover{ color:#fff; background:rgba(255,255,255,0.12); }
+  .tag-actions .del-btn:hover{ color:#fff; background:var(--danger); }
+
+  .sidebar-foot{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    color:rgba(241,237,226,0.3);
+    text-align:center;
+    padding-top:12px;
+    letter-spacing:0.5px;
+  }
+
+  /* ---------- Main / paper area ---------- */
+  #main{
+    flex:1;
+    height:100vh;
+    overflow-y:auto;
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 32px,
+      var(--paper);
+    padding:44px 56px 80px;
+  }
+  #main::-webkit-scrollbar{ width:8px; }
+  #main::-webkit-scrollbar-thumb{ background:rgba(35,32,26,0.15); border-radius:4px; }
+
+  .panel-header{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:26px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:12px;
+  }
+  .panel-header .icon{ font-size:26px; }
+  .panel-header h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:26px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:0.2px;
+  }
+  .panel-header .sub{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    letter-spacing:0.5px;
+  }
+
+  /* Quote view */
+  #quoteView{
+    height:calc(100vh - 124px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .quote-card{
+    max-width:640px;
+    text-align:center;
+    padding:20px;
+  }
+  .quote-eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin-bottom:22px;
+  }
+  .quote-text{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:34px;
+    line-height:1.45;
+    font-weight:600;
+    color:var(--ink);
+    margin:0 0 20px;
+  }
+  .quote-mark{ color:var(--amber); font-size:40px; line-height:0; vertical-align:-6px; }
+  .quote-date{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    letter-spacing:1px;
+  }
+
+  /* Forms & lists */
+  .add-form{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:flex-end;
+    background:rgba(255,255,255,0.55);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:24px;
+  }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.8px;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .field input, .field select, .field textarea{
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    padding:8px 10px;
+    border:1px solid rgba(35,32,26,0.18);
+    border-radius:7px;
+    background:#fff;
+    color:var(--ink);
+    min-width:140px;
+  }
+  .field textarea{ min-width:220px; resize:vertical; min-height:38px; font-family:'Inter',sans-serif;}
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:2px solid var(--amber); outline-offset:1px;
+  }
+  .btn-primary{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    padding:9px 18px;
+    border-radius:7px;
+    cursor:pointer;
+    height:37px;
+  }
+  .btn-primary:hover{ background:#3a352b; }
+
+  .item-list{ display:flex; flex-direction:column; gap:10px; }
+  .item-card{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    background:rgba(255,255,255,0.6);
+    border:1px solid var(--paper-line);
+    border-left:3px solid var(--amber);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .item-card.done{ opacity:0.5; border-left-color:var(--green); }
+  .item-card.urgent{ border-left-color:var(--danger); }
+  .item-check{ margin-top:2px; cursor:pointer; width:16px; height:16px; accent-color: var(--green); flex-shrink:0;}
+  .item-body{ flex:1; }
+  .item-title{ font-weight:600; font-size:14.5px; margin-bottom:2px; }
+  .item-title.done{ text-decoration:line-through; }
+  .item-meta{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    display:flex; gap:12px; flex-wrap:wrap; margin-top:3px;
+  }
+  .item-note{ font-size:13px; color:var(--ink); margin-top:6px; white-space:pre-wrap; line-height:1.5;}
+  .item-del{
+    background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:15px;
+    padding:2px 6px; border-radius:5px; flex-shrink:0;
+  }
+  .item-del:hover{ color:#fff; background:var(--danger); }
+  .empty-state{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    text-align:center;
+    padding:40px 0;
+    border:1px dashed rgba(35,32,26,0.2);
+    border-radius:10px;
+  }
+
+  .summary-strip{
+    display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px;
+  }
+  .summary-chip{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px;
+    background:var(--ink);
+    color:var(--paper);
+    padding:7px 14px;
+    border-radius:20px;
+  }
+  .summary-chip.pos{ background:var(--green); }
+  .summary-chip.neg{ background:var(--danger); }
+
+  .notice{
+    font-size:12px; color:var(--ink-soft); margin:-10px 0 20px; font-style:italic;
+  }
+
+  /* stock table */
+  table.stock-table{ width:100%; border-collapse:collapse; }
+  table.stock-table th{
+    font-family:'JetBrains Mono', monospace; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.5px; color:var(--ink-soft); text-align:left; padding:8px 10px;
+    border-bottom:2px solid var(--ink);
+  }
+  table.stock-table td{
+    padding:10px 10px; border-bottom:1px solid var(--paper-line); font-size:13.5px;
+  }
+  table.stock-table td.num{ font-family:'JetBrains Mono', monospace; }
+  table.stock-table tr:hover{ background:rgba(255,255,255,0.5); }
+
+  /* sticky notes for 碎片笔记 */
+  .sticky-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:14px; }
+  .sticky{
+    background:#fff7d6;
+    border-radius:4px;
+    padding:14px;
+    font-size:13.5px;
+    line-height:1.5;
+    box-shadow:2px 3px 8px rgba(0,0,0,0.12);
+    position:relative;
+    transform:rotate(-0.6deg);
+    white-space:pre-wrap;
+  }
+  .sticky:nth-child(3n){ background:#e8f3ea; transform:rotate(0.8deg); }
+  .sticky:nth-child(3n+1){ background:#fde8e0; transform:rotate(-1deg); }
+  .sticky .item-meta{ margin-top:8px; }
+  .sticky .item-del{ position:absolute; top:4px; right:4px; }
+
+  /* modal */
+  #modalOverlay{
+    position:fixed; inset:0; background:rgba(20,18,14,0.45);
+    display:none; align-items:center; justify-content:center; z-index:50;
+  }
+  #modalOverlay.show{ display:flex; }
+  .modal-box{
+    background:var(--paper); border-radius:12px; padding:26px; width:340px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.3);
+  }
+  .modal-box h3{
+    font-family:'Space Grotesk', sans-serif; margin:0 0 16px; font-size:18px;
+  }
+  .modal-box input{
+    width:100%; padding:10px 12px; font-size:14px; border-radius:7px;
+    border:1px solid rgba(35,32,26,0.2); margin-bottom:10px; font-family:'Inter',sans-serif;
+  }
+  .icon-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+  .icon-opt{
+    font-size:18px; padding:6px 9px; border-radius:7px; border:1px solid rgba(35,32,26,0.15);
+    background:#fff; cursor:pointer;
+  }
+  .icon-opt.selected{ border-color:var(--amber); background:var(--amber-soft); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
+  .btn-ghost{
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px;
+    background:none; border:1px solid rgba(35,32,26,0.2); padding:8px 14px;
+    border-radius:7px; cursor:pointer; color:var(--ink);
+  }
+
+  @media (max-width: 860px){
+    body{ flex-direction:column; overflow:auto; height:auto; }
+    #sidebar{ width:100%; min-width:0; height:auto; max-height:46vh; }
+    #main{ height:auto; padding:28px 20px 60px; }
+    #quoteView{ height:auto; padding:40px 0; }
+    .quote-text{ font-size:24px; }
+  }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="brand">Yilypop<span>'s</span> Workshop
+    <small>// personal workbench</small>
+  </div>
+  <button class="add-slot" id="addSectionBtn">
+    <span class="plus-icon">＋</span> 新建板块
+  </button>
+  <ul id="sectionList"></ul>
+  <div class="sidebar-foot" id="clockFoot"></div>
+</aside>
+
+<main id="main"></main>
+
+<div id="modalOverlay">
+  <div class="modal-box">
+    <h3>新建板块</h3>
+    <input id="newSectionName" type="text" placeholder="板块名称，例如「阅读清单」" maxlength="20">
+    <div class="icon-picker" id="iconPicker"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cancelAddBtn">取消</button>
+      <button class="btn-primary" id="confirmAddBtn">创建</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const ICONS = ['🔧','📌','🎯','🧩','🌱','🎨','🧠','🔬','🎵','🧵','🗂️','🛠️'];
+  const DEFAULT_SECTIONS = [
+    {id:'today',    name:'今日任务',   icon:'📋', type:'today',    custom:false},
+    {id:'review',   name:'复习计划',   icon:'📚', type:'review',   custom:false},
+    {id:'deadline', name:'Deadline 项目', icon:'⏰', type:'deadline', custom:false},
+    {id:'stock',    name:'股市行情',   icon:'📈', type:'stock',    custom:false},
+    {id:'daylog',   name:'每日记录',   icon:'📝', type:'daylog',   custom:false},
+    {id:'finance',  name:'资金记录',   icon:'💰', type:'finance',  custom:false},
+    {id:'rating',   name:'每日评分',   icon:'⭐', type:'rating',   custom:false},
+    {id:'notes',    name:'碎片笔记',   icon:'🗒️', type:'notes',    custom:false},
+  ];
+
+  const QUOTES = [
+    "先把今天做好，未来自然会跟上。",
+    "慢一点没关系，只要方向没错。",
+    "你不需要感觉准备好了，你只需要开始。",
+    "每一个小任务完成，都是对自己的一次兑现。",
+    "进步不响亮，但它一直在发生。",
+    "把复杂的事情拆小，今天只做一步。",
+    "休息也是计划的一部分，不是计划的失败。",
+    "记录下来的努力，才不会被遗忘。",
+    "You don't have to see the whole staircase, just take the first step.",
+    "专注在可以控制的事情上，其它的交给时间。",
+    "今天的坏情绪，不代表明天的坏结果。",
+    "自律不是惩罚自己，是善待未来的自己。",
+    "完成比完美更重要，先交出第一版。",
+    "Small steps every day beat big leaps once in a while.",
+    "允许自己慢慢来，但不要允许自己停下来。",
+    "你的节奏，不需要跟别人一样。",
+    "清单上的每一个勾，都是对拖延的一次小小胜利。",
+    "累的时候，就承认累，然后继续走。",
+    "计划是为了让你安心，而不是让你焦虑。",
+    "今天的努力，是未来选择的底气。",
+    "别把心情当成能不能开始的理由。",
+    "写下来的目标，才有机会被实现。",
+    "не спеши, но и не останавливайся — one line, steady pace.",
+    "把手机放下五分钟，先把这一项做完。",
+    "你已经比昨天多了一点点，那就够了。",
+    "任何进展都值得被记录一笔。",
+    "先完成，再完美。",
+    "焦虑解决不了任务，行动可以。",
+    "今天也要好好吃饭，好好睡觉，好好做事。",
+    "你正在建造的，是长期主义的自己。",
+  ];
+
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function dayIndexSeed(){
+    const d = new Date();
+    const start = new Date(d.getFullYear(),0,0);
+    const diff = d - start;
+    return Math.floor(diff / (1000*60*60*24));
+  }
+  function uid(){ return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+  function esc(s){
+    if(s===undefined||s===null) return '';
+    return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- storage helpers ----------
+  async function storeGet(key){
+    try{
+      const r = await window.storage.get(key, false);
+      return r ? r.value : null;
+    }catch(e){ return null; }
+  }
+  async function storeSet(key, value){
+    try{ await window.storage.set(key, value, false); }
+    catch(e){ console.error('storage set failed', key, e); }
+  }
+
+  let sections = null;   // array
+  let sectionData = {};  // cache: id -> array of items
+  let activeId = null;
+
+  async function loadSections(){
+    const raw = await storeGet('workshop:sections');
+    if(raw){
+      try{ sections = JSON.parse(raw); }catch(e){ sections = null; }
+    }
+    if(!sections){
+      sections = DEFAULT_SECTIONS.slice();
+      await storeSet('workshop:sections', JSON.stringify(sections));
+    }
+  }
+  async function saveSections(){
+    await storeSet('workshop:sections', JSON.stringify(sections));
+  }
+  async function loadItems(id){
+    if(sectionData[id]) return sectionData[id];
+    const raw = await storeGet('workshop:data:'+id);
+    let arr = [];
+    if(raw){ try{ arr = JSON.parse(raw); }catch(e){ arr = []; } }
+    sectionData[id] = arr;
+    return arr;
+  }
+  async function saveItems(id){
+    await storeSet('workshop:data:'+id, JSON.stringify(sectionData[id] || []));
+  }
+
+  // ---------- sidebar rendering ----------
+  function renderSidebar(){
+    const ul = document.getElementById('sectionList');
+    ul.innerHTML = sections.map((s,i)=>`
+      <li class="tool-tag ${activeId===s.id?'active':''}" draggable="true" data-id="${s.id}" data-index="${i}">
+        <span class="grip">⋮⋮</span>
+        <span class="tag-icon">${s.icon}</span>
+        <span class="tag-label">${esc(s.name)}</span>
+        <span class="tag-actions">
+          <button class="up-btn" title="上移" data-id="${s.id}">▲</button>
+          <button class="down-btn" title="下移" data-id="${s.id}">▼</button>
+          ${s.custom ? `<button class="del-btn" title="删除板块" data-id="${s.id}">×</button>` : ''}
+        </span>
+      </li>
+    `).join('');
+    attachSidebarEvents();
+  }
+
+  function attachSidebarEvents(){
+    const ul = document.getElementById('sectionList');
+    ul.querySelectorAll('.tool-tag').forEach(li=>{
+      li.addEventListener('click', (e)=>{
+        if(e.target.closest('.tag-actions')) return;
+        openSection(li.dataset.id);
+      });
+      li.addEventListener('dragstart', (e)=>{
+        li.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', li.dataset.id);
+      });
+      li.addEventListener('dragend', ()=>{
+        li.classList.remove('dragging');
+        ul.querySelectorAll('.tool-tag').forEach(x=>x.classList.remove('drag-over-top','drag-over-bottom'));
+      });
+      li.addEventListener('dragover', (e)=>{
+        e.preventDefault();
+        const rect = li.getBoundingClientRect();
+        const before = (e.clientY - rect.top) < rect.height/2;
+        li.classList.toggle('drag-over-top', before);
+        li.classList.toggle('drag-over-bottom', !before);
+      });
+      li.addEventListener('dragleave', ()=>{
+        li.classList.remove('drag-over-top','drag-over-bottom');
+      });
+      li.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        const draggedId = e.dataTransfer.getData('text/plain');
+        const targetId = li.dataset.id;
+        li.classList.remove('drag-over-top','drag-over-bottom');
+        if(draggedId===targetId) return;
+        const fromIdx = sections.findIndex(s=>s.id===draggedId);
+        let toIdx = sections.findIndex(s=>s.id===targetId);
+        if(fromIdx<0||toIdx<0) return;
+        const rect = li.getBoundingClientRect();
+        const before = (e.clientY - rect.top) < rect.height/2;
+        const [moved] = sections.splice(fromIdx,1);
+        toIdx = sections.findIndex(s=>s.id===targetId);
+        sections.splice(before? toIdx : toIdx+1, 0, moved);
+        renderSidebar();
+        saveSections();
+      });
+    });
+    ul.querySelectorAll('.up-btn').forEach(b=>b.addEventListener('click',(e)=>{
+      e.stopPropagation(); moveSection(b.dataset.id,-1);
+    }));
+    ul.querySelectorAll('.down-btn').forEach(b=>b.addEventListener('click',(e)=>{
+      e.stopPropagation(); moveSection(b.dataset.id,1);
+    }));
+    ul.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',(e)=>{
+      e.stopPropagation(); deleteSection(b.dataset.id);
+    }));
+  }
+
+  function moveSection(id, dir){
+    const idx = sections.findIndex(s=>s.id===id);
+    const newIdx = idx+dir;
+    if(newIdx<0 || newIdx>=sections.length) return;
+    [sections[idx], sections[newIdx]] = [sections[newIdx], sections[idx]];
+    renderSidebar();
+    saveSections();
+  }
+
+  function deleteSection(id){
+    if(!confirm('确定要删除这个板块吗？其中的内容也会被移除。')) return;
+    sections = sections.filter(s=>s.id!==id);
+    delete sectionData[id];
+    storeSet('workshop:data:'+id, JSON.stringify([]));
+    if(activeId===id){ activeId=null; renderMain(); }
+    renderSidebar();
+    saveSections();
+  }
+
+  // ---------- add section modal ----------
+  const overlay = document.getElementById('modalOverlay');
+  const iconPicker = document.getElementById('iconPicker');
+  let pickedIcon = ICONS[0];
+  iconPicker.innerHTML = ICONS.map(ic=>`<span class="icon-opt" data-ic="${ic}">${ic}</span>`).join('');
+  function refreshIconPicker(){
+    iconPicker.querySelectorAll('.icon-opt').forEach(el=>{
+      el.classList.toggle('selected', el.dataset.ic===pickedIcon);
+    });
+  }
+  iconPicker.querySelectorAll('.icon-opt').forEach(el=>{
+    el.addEventListener('click', ()=>{ pickedIcon = el.dataset.ic; refreshIconPicker(); });
+  });
+  refreshIconPicker();
+
+  document.getElementById('addSectionBtn').addEventListener('click', ()=>{
+    document.getElementById('newSectionName').value='';
+    pickedIcon = ICONS[0]; refreshIconPicker();
+    overlay.classList.add('show');
+    setTimeout(()=>document.getElementById('newSectionName').focus(), 50);
+  });
+  document.getElementById('cancelAddBtn').addEventListener('click', ()=> overlay.classList.remove('show'));
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.classList.remove('show'); });
+  document.getElementById('confirmAddBtn').addEventListener('click', async ()=>{
+    const name = document.getElementById('newSectionName').value.trim();
+    if(!name){ document.getElementById('newSectionName').focus(); return; }
+    const id = 'custom_'+uid();
+    sections.push({id, name, icon:pickedIcon, type:'notes', custom:true});
+    await saveSections();
+    renderSidebar();
+    overlay.classList.remove('show');
+    openSection(id);
+  });
+  document.getElementById('newSectionName').addEventListener('keydown',(e)=>{
+    if(e.key==='Enter') document.getElementById('confirmAddBtn').click();
+  });
+
+  // ---------- main / quote view ----------
+  function renderQuote(){
+    const idx = dayIndexSeed() % QUOTES.length;
+    const q = QUOTES[idx];
+    document.getElementById('main').innerHTML = `
+      <div id="quoteView">
+        <div class="quote-card">
+          <div class="quote-eyebrow">Quote of the Day</div>
+          <p class="quote-text"><span class="quote-mark">“</span>${esc(q)}<span class="quote-mark">”</span></p>
+          <div class="quote-date">${todayStr()} · 点击左侧任意板块查看内容</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function openSection(id){
+    activeId = id;
+    renderSidebar();
+    await renderMain();
+  }
+
+  async function renderMain(){
+    if(!activeId){ renderQuote(); return; }
+    const sec = sections.find(s=>s.id===activeId);
+    if(!sec){ activeId=null; renderQuote(); return; }
+    const items = await loadItems(sec.id);
+    const main = document.getElementById('main');
+    main.innerHTML = `
+      <div class="panel-header">
+        <span class="icon">${sec.icon}</span>
+        <div>
+          <h1>${esc(sec.name)}</h1>
+          <div class="sub">${items.length} 条记录</div>
+        </div>
+      </div>
+      <div id="summarySlot"></div>
+      <div id="formSlot"></div>
+      <div id="listSlot"></div>
+    `;
+    renderTypeSpecific(sec, items);
+  }
+
+  const TYPE_CONFIG = {
+    today:   { fields:[{key:'text',label:'任务内容',type:'text',placeholder:'今天要做什么？'}], hasDone:true },
+    review:  { fields:[
+                {key:'subject',label:'科目 / 主题',type:'text',placeholder:'例如：线性代数'},
+                {key:'date',label:'计划日期',type:'date'},
+                {key:'note',label:'复习内容',type:'textarea',placeholder:'具体复习什么'}
+              ], hasDone:true },
+    deadline:{ fields:[
+                {key:'name',label:'项目名称',type:'text',placeholder:'例如：期末论文'},
+                {key:'date',label:'截止日期',type:'date'},
+                {key:'note',label:'备注',type:'text',placeholder:'进度 / 备注'}
+              ], hasDone:false, sortByDate:true },
+    stock:   { fields:[
+                {key:'symbol',label:'代码 / 名称',type:'text',placeholder:'例如：AAPL'},
+                {key:'price',label:'价格',type:'number',placeholder:'0.00'},
+                {key:'change',label:'涨跌',type:'text',placeholder:'例如：+1.2%'},
+                {key:'note',label:'备注',type:'text',placeholder:'备注'}
+              ], hasDone:false, isTable:true },
+    daylog:  { fields:[
+                {key:'date',label:'日期',type:'date'},
+                {key:'text',label:'记录内容',type:'textarea',placeholder:'今天发生了什么'}
+              ], hasDone:false, sortDesc:true },
+    finance: { fields:[
+                {key:'date',label:'日期',type:'date'},
+                {key:'category',label:'类型',type:'select',options:['收入','支出']},
+                {key:'amount',label:'金额',type:'number',placeholder:'0.00'},
+                {key:'note',label:'备注',type:'text',placeholder:'备注'}
+              ], hasDone:false, sortDesc:true, isFinance:true },
+    rating:  { fields:[
+                {key:'date',label:'日期',type:'date'},
+                {key:'score',label:'评分 (1-10)',type:'number',placeholder:'8'},
+                {key:'note',label:'备注',type:'textarea',placeholder:'今天的状态'}
+              ], hasDone:false, sortDesc:true, isRating:true },
+    notes:   { fields:[
+                {key:'text',label:'笔记内容',type:'textarea',placeholder:'随手记下来'}
+              ], hasDone:false, isSticky:true, sortDesc:true },
+  };
+
+  function fieldInputHtml(f){
+    const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : '';
+    if(f.type==='textarea') return `<textarea data-field="${f.key}"${ph} rows="2"></textarea>`;
+    if(f.type==='select'){
+      const opts = f.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      return `<select data-field="${f.key}">${opts}</select>`;
+    }
+    return `<input type="${f.type}" data-field="${f.key}"${ph}>`;
+  }
+
+  function renderTypeSpecific(sec, items){
+    const cfg = TYPE_CONFIG[sec.type] || TYPE_CONFIG.notes;
+    const formSlot = document.getElementById('formSlot');
+    const listSlot = document.getElementById('listSlot');
+    const summarySlot = document.getElementById('summarySlot');
+
+    // form
+    formSlot.innerHTML = `
+      <div class="add-form" id="addForm">
+        ${cfg.fields.map(f=>`
+          <div class="field"><label>${esc(f.label)}</label>${fieldInputHtml(f)}</div>
+        `).join('')}
+        <button class="btn-primary" id="submitItemBtn">添加</button>
+      </div>
+      ${sec.type==='stock' ? `<div class="notice">行情为手动记录：当前环境无法连接实时股票数据源，需要自行更新价格。</div>` : ''}
+    `;
+    document.getElementById('submitItemBtn').addEventListener('click', async ()=>{
+      const data = {};
+      let hasContent = false;
+      formSlot.querySelectorAll('[data-field]').forEach(el=>{
+        data[el.dataset.field] = el.value;
+        if(el.value && el.value.trim()) hasContent = true;
+      });
+      if(!hasContent) return;
+      const item = { id: uid(), done:false, ...data };
+      if(!item.date && cfg.fields.some(f=>f.key==='date')) item.date = todayStr();
+      sectionData[sec.id].unshift(item);
+      await saveItems(sec.id);
+      renderMain();
+    });
+
+    // summary chips
+    let summaryHtml = '';
+    if(cfg.isFinance){
+      let income=0, expense=0;
+      items.forEach(it=>{
+        const amt = parseFloat(it.amount)||0;
+        if(it.category==='收入') income+=amt; else expense+=amt;
+      });
+      const balance = income-expense;
+      summaryHtml = `
+        <div class="summary-strip">
+          <span class="summary-chip pos">收入 ¥${income.toFixed(2)}</span>
+          <span class="summary-chip neg">支出 ¥${expense.toFixed(2)}</span>
+          <span class="summary-chip">结余 ¥${balance.toFixed(2)}</span>
+        </div>`;
+    }
+    if(cfg.isRating && items.length){
+      const scores = items.map(it=>parseFloat(it.score)).filter(n=>!isNaN(n));
+      const avg = scores.length? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '--';
+      summaryHtml = `<div class="summary-strip"><span class="summary-chip">平均评分 ${avg} / 10</span><span class="summary-chip">共 ${items.length} 天</span></div>`;
+    }
+    if(sec.type==='deadline' && items.length){
+      const soon = items.filter(it=> it.date && (new Date(it.date) - new Date()) < 3*86400000 && (new Date(it.date) - new Date()) > -86400000).length;
+      summaryHtml = `<div class="summary-strip"><span class="summary-chip">共 ${items.length} 个项目</span>${soon? `<span class="summary-chip neg">${soon} 个即将到期</span>`:''}</div>`;
+    }
+    summarySlot.innerHTML = summaryHtml;
+
+    // sort
+    let sorted = items.slice();
+    if(cfg.sortByDate){
+      sorted.sort((a,b)=> new Date(a.date||'2999-01-01') - new Date(b.date||'2999-01-01'));
+    } else if(cfg.sortDesc){
+      sorted.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    }
+
+    if(!sorted.length){
+      listSlot.innerHTML = `<div class="empty-state">还没有内容，先在上面添加一条吧。</div>`;
+      return;
+    }
+
+    if(cfg.isTable){
+      listSlot.innerHTML = `
+        <table class="stock-table">
+          <thead><tr><th>代码/名称</th><th>价格</th><th>涨跌</th><th>备注</th><th></th></tr></thead>
+          <tbody>
+            ${sorted.map(it=>`
+              <tr data-id="${it.id}">
+                <td>${esc(it.symbol||'')}</td>
+                <td class="num">${esc(it.price||'')}</td>
+                <td class="num" style="color:${(''+it.change).trim().startsWith('-') ? 'var(--danger)' : 'var(--green)'}">${esc(it.change||'')}</td>
+                <td>${esc(it.note||'')}</td>
+                <td><button class="item-del" data-id="${it.id}">×</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      listSlot.querySelectorAll('.item-del').forEach(b=>b.addEventListener('click', async ()=>{
+        sectionData[sec.id] = sectionData[sec.id].filter(x=>x.id!==b.dataset.id);
+        await saveItems(sec.id);
+        renderMain();
+      }));
+      return;
+    }
+
+    if(cfg.isSticky){
+      listSlot.innerHTML = `<div class="sticky-grid">
+        ${sorted.map(it=>`
+          <div class="sticky" data-id="${it.id}">
+            <button class="item-del" data-id="${it.id}">×</button>
+            <div>${esc(it.text||'').replace(/\n/g,'<br>')}</div>
+            <div class="item-meta">${it.id.slice(1,6)}</div>
+          </div>
+        `).join('')}
+      </div>`;
+      listSlot.querySelectorAll('.item-del').forEach(b=>b.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        sectionData[sec.id] = sectionData[sec.id].filter(x=>x.id!==b.dataset.id);
+        await saveItems(sec.id);
+        renderMain();
+      }));
+      return;
+    }
+
+    // generic card list (today / review / deadline / daylog / finance / rating)
+    listSlot.innerHTML = `<div class="item-list">
+      ${sorted.map(it=>{
+        let urgent = false;
+        if(sec.type==='deadline' && it.date){
+          const days = Math.ceil((new Date(it.date)-new Date())/86400000);
+          urgent = days<=3;
+        }
+        const titleField = it.text!==undefined ? it.text
+          : it.name!==undefined ? it.name
+          : it.subject!==undefined ? it.subject
+          : '';
+        let metaBits = [];
+        if(it.date){
+          metaBits.push(esc(it.date));
+          if(sec.type==='deadline'){
+            const days = Math.ceil((new Date(it.date)-new Date())/86400000);
+            metaBits.push(days>=0 ? `剩 ${days} 天` : `已逾期 ${Math.abs(days)} 天`);
+          }
+        }
+        if(sec.type==='finance'){ metaBits.push(esc(it.category||'')); metaBits.push('¥'+esc(it.amount||'0')); }
+        if(sec.type==='rating'){ metaBits.push('评分 '+esc(it.score||'--')+' / 10'); }
+        const noteText = it.note || (sec.type==='daylog' ? it.text : '') || '';
+        return `
+        <div class="item-card ${it.done?'done':''} ${urgent && !it.done?'urgent':''}" data-id="${it.id}">
+          ${cfg.hasDone ? `<input type="checkbox" class="item-check" data-id="${it.id}" ${it.done?'checked':''}>` : ''}
+          <div class="item-body">
+            ${titleField ? `<div class="item-title ${it.done?'done':''}">${esc(titleField)}</div>` : ''}
+            ${metaBits.length? `<div class="item-meta">${metaBits.map(m=>`<span>${m}</span>`).join('')}</div>`:''}
+            ${noteText ? `<div class="item-note">${esc(noteText)}</div>` : ''}
+          </div>
+          <button class="item-del" data-id="${it.id}">×</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+    listSlot.querySelectorAll('.item-check').forEach(cb=>cb.addEventListener('change', async ()=>{
+      const it = sectionData[sec.id].find(x=>x.id===cb.dataset.id);
+      if(it){ it.done = cb.checked; await saveItems(sec.id); renderMain(); }
+    }));
+    listSlot.querySelectorAll('.item-del').forEach(b=>b.addEventListener('click', async ()=>{
+      sectionData[sec.id] = sectionData[sec.id].filter(x=>x.id!==b.dataset.id);
+      await saveItems(sec.id);
+      renderMain();
+    }));
+  }
+
+  // ---------- init ----------
+  async function init(){
+    document.getElementById('main').innerHTML = `<div id="quoteView"><div class="quote-card"><div class="quote-eyebrow">Loading…</div></div></div>`;
+    await loadSections();
+    renderSidebar();
+    renderQuote();
+    const foot = document.getElementById('clockFoot');
+    foot.textContent = todayStr();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
